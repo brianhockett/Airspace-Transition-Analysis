@@ -104,6 +104,7 @@ def get_events():
         print(f"Exception {e}")
         return None
     
+# Function to run producer
 def main():
 
     logging.info("Starting OpenSky Producer")
@@ -134,7 +135,6 @@ def main():
     # Initializing producer object
     producer = app.get_producer()
 
-    count = 0
 
     # Continuously polling the API every `poll_interval` seconds
     while True:
@@ -153,9 +153,6 @@ def main():
             for state_vector in state_vectors:
                 # Add keys to state vector response
                 keyed_state_vector = dict(zip(state_vector_keys, state_vector))
-                if count == 0:
-                    logging.info(keyed_state_vector)
-                    count += 1
 
 
                 # Must force key to be a string to prevent formatting issue
