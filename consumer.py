@@ -1,13 +1,12 @@
 # Imports
-from quixstreams.models import TopicConfig
 from quixstreams import Application
 from dotenv import load_dotenv
-import requests
 import logging
 import duckdb
 import time
 import json
 import os
+import sys
 
 # os.getenv() will now refer to the .env file in the directory
 load_dotenv()
@@ -26,7 +25,7 @@ state_vector_keys = [
 # Function to run consumer
 def main():
     
-    logging.info("Initializing Consumer to Read airspace-events")
+    logger.info("Initializing Consumer to Read airspace-events")
 
     # Setting up application
     app = Application(
@@ -48,9 +47,9 @@ def main():
     # Connecting to duckdb
     try:
         con = duckdb.connect(database = 'airspace-events.duckdb', read_only = False)
-        logging.info("Connect to DuckDB Instance")
+        logger.info("Connect to DuckDB Instance")
     except Exception as e:
-        logging.error(f"Failed to Connect to DuckDB: {e}")
+        logger.error(f"Failed to Connect to DuckDB: {e}")
         raise SystemExit(1)
 
     # Creating table in duckdb if it does not already exists
@@ -77,9 +76,9 @@ def main():
                 position_source INTEGER NULL,
                 PRIMARY KEY (icao24, last_contact));        
             """)
-        logging.info("Created DuckDB table if it did not already exist")
+        logger.info("Created DuckDB table if it did not already exist")
     except Exception as e:
-        logging.error(f"Failed to create airspace table in DuckDB: {e}")
+        logger.error(f"Failed to create airspace table in DuckDB: {e}")
         raise SystemExit(1)
 
     # Query for inserting consumed state vectors into Duckdb
@@ -118,17 +117,17 @@ def main():
                         con.commit()
 
                         messages_processed += len(events_to_insert)
-                        logging.info(f"Batch committed. Total records inserted: {messages_processed}")
+                        logger.info(f"Batch committed. Total records inserted: {messages_processed}")
                         
                         # Empty batch list
                         events_to_insert = []
                 except Exception as e:
-                    logging.error(f"Failed to insert message {messages_processed+1} into DuckDB")
+                    logger.error(f"Failed to insert message {messages_processed+1} into DuckDB")
             elif message is None:
-                logging.info("Waiting for more messages")
+                logger.info("Waiting for more messages")
                 time.sleep(5)
     except KeyboardInterrupt:
-        logging.warning("Keyboard Interruption")
+        logger.warning("Keyboard Interruption")
     finally:
         # Ensure message queued for batch insertion are handled when script is stopped
         if len(events_to_insert) > 0 and con:
@@ -136,21 +135,31 @@ def main():
                 con.executemany(insert_query, events_to_insert)
                 con.commit()
                 messages_processed += len(events_to_insert)
-                logging.info(f"Final cleanup commit successful. Total records inserted: {messages_processed}")
+                logger.info(f"Final cleanup commit successful. Total records inserted: {messages_processed}")
             except Exception as e:
-                logging.error(f"Failed to commit remaining batch on shutdown: {e}")
+                logger.error(f"Failed to commit remaining batch on shutdown: {e}")
         # Close duckdb connection when program ends
         if con:
             con.close()
-            logging.info("Closed DuckDB connection")
+            logger.info("Closed DuckDB connection")
 
         consumer.close()
-        logging.info("Consumer Stopped")
+        logger.info("Consumer Stopped")
 
 # Initialize logger and run main function
 if __name__ == '__main__':
     try:
-        logging.basicConfig(level = 'DEBUG')
+        logging.basicConfig(
+            level = logging.INFO,
+            format='%(asctime)s - %(levelname)s - %(message)s',
+            filename='consumer.log',
+            filemode='a'
+        )
+        logger = logging.getLogger(__name__) # Get a logger instance
+        console = logging.StreamHandler(sys.stdout)
+        console.setLevel(logging.INFO)
+        console.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+        logger.addHandler(console)
         main()
     except KeyboardInterrupt:
         pass

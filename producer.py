@@ -7,6 +7,7 @@ import logging
 import time
 import json
 import os
+import sys
 
 # os.getenv() will now refer to the .env file in the directory
 load_dotenv()
@@ -53,7 +54,7 @@ KAFKA_BROKER = os.getenv("KAFKA_BROKER", "127.0.0.1:19092,127.0.0.1:29092,127.0.
 def get_token():
 
     global token_info
-    logging.info("Requesting new OpenSky access token")
+    logger.info("Requesting new OpenSky access token")
 
     # Credentials
     credentials = {
@@ -74,10 +75,10 @@ def get_token():
         # Overwriting global token_info with new token
         token_info['access_token'] = token_data.get('access_token')
         token_info['expires_at'] = time.time() + (token_data.get('expires_in', 1800) * 0.8)
-        logging.info("Successfully obtained new token")
+        logger.info("Successfully obtained new token")
     except Exception as e:
         # Exit the program if we are unable to receive an access token
-        print(f"Exception {e}")
+        logger.error(f"Exception {e}")
         raise SystemExit(1)
 
 # Function to poll the API for events
@@ -101,13 +102,13 @@ def get_events():
         response.raise_for_status()
         return response.json()
     except Exception as e:
-        print(f"Exception {e}")
+        logger.error(f"Exception {e}")
         return None
     
 # Function to run producer
 def main():
 
-    logging.info("Starting OpenSky Producer")
+    logger.info("Starting OpenSky Producer")
 
     # Setting up Application
     app = Application(
@@ -147,7 +148,7 @@ def main():
 
             # Extract state vectors from the events
             state_vectors = events['states']
-            logging.info(f"Publishing {len(state_vectors)} state vectors to Kafka")
+            logger.info(f"Publishing {len(state_vectors)} state vectors to Kafka")
 
             # Loop through the state vectors
             for state_vector in state_vectors:
@@ -175,7 +176,18 @@ def main():
 # Initialize logger and run the producer program
 if __name__ == '__main__':
     try:
-        logging.basicConfig(level = 'INFO')
+        logging.basicConfig(
+            level = logging.INFO,
+            format='%(asctime)s - %(levelname)s - %(message)s',
+            filename='producer.log',
+            filemode='a'
+        )
+        logger = logging.getLogger(__name__) # Get a logger instance
+        console = logging.StreamHandler(sys.stdout)
+        console.setLevel(logging.INFO)
+        console.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
+        logger.addHandler(console)
         main()
+
     except KeyboardInterrupt:
         pass

@@ -1,28 +1,37 @@
+# Imports
 import streamlit as st
 import geopandas as gpd
 import polars as pl
 import matplotlib.pyplot as plt
-from matplotlib.patches import Patch
-from shapely.geometry import Point
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import numpy as np
+import pandas as pd
 
 # Set page config for wide layout
 st.set_page_config(layout="wide")
 
 # Load data
-opensky_df = pl.read_parquet("opensky_enriched.parquet")
-airspace_gdf = gpd.read_parquet("airspace_enriched.parquet")
-transitions_df = pl.read_parquet("transitions.parquet")
+@st.cache_data # This allows caching of the loaded data, to speed up app performance
+def load_data():
+    # Load in data files
+    opensky_df = pl.read_parquet("opensky_enriched.parquet")
+    airspace_gdf = gpd.read_parquet("airspace_enriched.parquet")
+    transitions_df = pl.read_parquet("transitions.parquet")
 
-# Exclude 'Outside National Airspace' from all data
-opensky_df = opensky_df.filter(pl.col("IDENT") != "Outside National Airspace")
-airspace_gdf = airspace_gdf[airspace_gdf["IDENT"] != "Outside National Airspace"]
-transitions_df = transitions_df.filter(
-    (pl.col("IDENT_prev") != "Outside National Airspace") & 
-    (pl.col("IDENT_new") != "Outside National Airspace")
-)
+    # Perform static filtering (Exclude 'Outside National Airspace')
+        # Doing this inside the function means we cache the CLEANED result.
+    opensky_df = opensky_df.filter(pl.col("IDENT") != "Outside National Airspace")
+    airspace_gdf = airspace_gdf[airspace_gdf["IDENT"] != "Outside National Airspace"]
+    transitions_df = transitions_df.filter(
+        (pl.col("IDENT_prev") != "Outside National Airspace") & 
+        (pl.col("IDENT_new") != "Outside National Airspace")
+    )
+    
+    return opensky_df, airspace_gdf, transitions_df
+
+# Call the function to get the cached data
+opensky_df, airspace_gdf, transitions_df = load_data()
 
 # Sidebar button selection for airspace
 idents = sorted(airspace_gdf["IDENT"].unique().tolist())
@@ -74,7 +83,7 @@ transitions_in_region = transitions_in_region.filter(
     pl.col("datetime") >= transitions_cutoff
 )
 
-# Filter only entrances and exits for the selected airspace
+# Filter entrances and exits for the selected airspace
 entrances = transitions_in_region.filter(pl.col("IDENT_new") == selected_ident)
 exits = transitions_in_region.filter(pl.col("IDENT_prev") == selected_ident)
 
@@ -133,11 +142,11 @@ col1, col2 = st.columns(2)
 
 with col1:
     st.subheader("Entrances")
-    st.dataframe(entrances_df, use_container_width=True, height=150, hide_index=True)
+    st.dataframe(entrances_df, use_container_width=True, height=200, hide_index=True)
 
 with col2:
     st.subheader("Exits")
-    st.dataframe(exits_df, use_container_width=True, height=150, hide_index=True)
+    st.dataframe(exits_df, use_container_width=True, height=200, hide_index=True)
 
 # Bottom row: Full-width map
 st.subheader("Most Recent Aircraft Locations (Last 30 Minutes)")
@@ -151,7 +160,7 @@ with col_legend[1]:
     with legend_col2:
         st.markdown("🔴 Exited")
     with legend_col3:
-        st.markdown("⚫ Neither")
+        st.markdown("⚪ Neither")
 
 # Set dark background style
 plt.style.use('dark_background')
@@ -183,7 +192,7 @@ for idx, row in airspaces_to_plot.iterrows():
         alpha=alpha
     )
     
-    # Add separate geometry with full opacity
+    # Add separate geometry with full opacity to get white outline
     ax.add_geometries(
             [row['geometry']], 
             crs=ccrs.PlateCarree(),
@@ -192,6 +201,7 @@ for idx, row in airspaces_to_plot.iterrows():
             linewidth=2
     
     )
+    # Add airsapace labels at centroids
     centroid = row['geometry'].centroid
     ax.text(
         centroid.x, 
@@ -205,12 +215,20 @@ for idx, row in airspaces_to_plot.iterrows():
         transform=ccrs.PlateCarree()
     )
 
-# Plot plane locations colored by transition status
+# Plot plane locations colored by transition status with directional arrows
+arrow_length = 0.175 # Length of arrow in degrees
+
+# Loop through planes and plot
 for _, plane in recent_planes_pd.iterrows():
+    lon, lat = plane['longitude'], plane['latitude']
+    color = plane['color']
+    true_track = plane['true_track']
+    
+    # Plot the point
     ax.scatter(
-        plane['longitude'],
-        plane['latitude'],
-        color=plane['color'],
+        lon,
+        lat,
+        color=color,
         s=50,
         alpha=1,
         transform=ccrs.PlateCarree(),
@@ -218,13 +236,38 @@ for _, plane in recent_planes_pd.iterrows():
         linewidth=0.5,
         zorder=5
     )
+    
+    # Add directional arrow if true_track is available
+    if pd.notna(true_track):
+        # Convert true track (degrees clockwise from north) to radians
+        angle_rad = np.radians(90 - true_track)
+        
+        # Calculate arrow endpoint
+        dx = arrow_length * np.cos(angle_rad)
+        dy = arrow_length * np.sin(angle_rad)
+        
+        ax.arrow(
+            lon, lat, dx, dy,
+            head_width=0.25,
+            head_length=0.14,
+            fc=color,
+            ec=color,
+            alpha=0.8,
+            transform=ccrs.PlateCarree(),
+            zorder=6,
+            linewidth=1
+        )
 
-ax.coastlines(linewidth=0.025, color="#A1A0A0")
-ax.add_feature(cfeature.STATES, linewidth=0.05, edgecolor="#A1A0A0")
+# Add coastlines and state borders
+ax.coastlines(linewidth=0.025, color="#FFFFFF")
+ax.add_feature(cfeature.STATES, linewidth=0.05, edgecolor="#FFFFFF")
+
+# Remove axis frame
 ax.set_frame_on(False)
 
-# Hide grid labels for cleaner look
+# Hide grid labels
 ax.set_xticks([], crs=ccrs.PlateCarree())
 ax.set_yticks([], crs=ccrs.PlateCarree())
 
+# Add plot to streamlit
 st.pyplot(fig, use_container_width=True)

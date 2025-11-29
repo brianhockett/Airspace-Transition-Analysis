@@ -1,0 +1,12 @@
+polars
+pandas
+geopandas
+shapely
+numpy
+matplotlib
+cartopy
+streamlit
+requests
+python-dotenv
+duckdb
+quixstreams
