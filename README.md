@@ -1,39 +1,48 @@
 # Airspace Transition Analysis
 
-# FOR GRADING
+# Setup and Execution Guide
 
-## ORDER TO RUN FILES IN
+## Prerequisites
 
-### 1.
+You'll need a local `.env` file with the following credentials to access the OpenSky API:
+```
+OPENSKY_CLIENTID=your_client_id
+OPENSKY_CLIENTSECRET=your_client_secret
+```
+
+## Running the Pipeline
+
+Follow these steps in order to execute the project:
+
+### Step 1: Produce Data
 ```sh
 python producer.py
 ```
+Fetches flight data from the OpenSky API and loads it into the system.
 
-- Requires local `.env` file with `OPENSKY_CLIENTID` and `OPENSKY_CLIENTSECRET` to access OpenSky API
-
-### 2.
+### Step 2: Consume Data
 ```sh
 python consumer.py
 ```
+Processes and stores the fetched data in the `AIRSPACE` table in DuckDB.
 
-----------------------------------------------------------------------------
-
-## DATA MUST EXIST IN `AIRSPACE` TABLE IN DUCKDB TO RUN SCRIPTS 3-5
-
-### 3.
+### Step 3: Transform Data
 ```sh
 python transform.py
 ```
+Transforms and prepares the data for analysis. **Requires data in the `AIRSPACE` table.**
 
-### 4.
+### Step 4: Analyze Data
 ```sh
 python analysis.py
 ```
+Runs analysis on the transformed data. **Requires data in the `AIRSPACE` table.**
 
-### 5. (Optional)
+### Step 5: Visualize Results (Optional)
 ```sh
 streamlit run app.py
 ```
+Launches an interactive dashboard to explore the analysis results.
 
 ## Overview
 
@@ -145,6 +154,7 @@ See `requirements.txt` for all Python package dependencies.
 
 * Ensure `.env` is configured with all necessary credentials.
 * Make sure Docker and Docker Compose are installed for running Redpanda.
+
 
 
 
