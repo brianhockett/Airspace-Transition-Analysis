@@ -34,11 +34,11 @@ python consumer.py
 **Notes:**
 
 * Creates the `airspace` table if it does not exist.
-* Commits data in batches of 2000 for efficiency.
+* Inserts data into `airspace` in batches of 2000 for efficiency.
 
 ### 3. `transform.py`
 
-**Purpose:** Extracts airspace regions from an external API, enriches OpenSky data with airspace info, calculates per-hour event rates (entrances, exits, total events), and writes enriched data to Parquet files.
+**Purpose:** Extracts airspace regions from an external API, enriches OpenSky data with airspace info, calculates per-hour event rates (entrances, exits, total events), and writes enriched data to Parquet files to maintain geographic attibutes.
 
 **Usage:**
 
@@ -60,7 +60,7 @@ python transform.py
 
 * Plane positions colored by airspace region
 * Hexbin map of plane position density
-* Traffic density per airspace region
+* Traffic rate density per airspace region
 
 **Usage:**
 
@@ -75,7 +75,7 @@ python analysis.py
 
 ### 5. `app.py`
 
-**Purpose:** Streamlit application to interactively display airspace data, including tables and plots of entrances, exits, and transitions for selected aircraft.
+**Purpose:** Streamlit application to interactively display airspace transfer data, including tables and a map for entrances and exits for a selected airspace.
 
 **Usage:**
 
@@ -86,7 +86,7 @@ streamlit run app.py
 **Notes:**
 
 * Reads enriched Parquet files.
-* Provides interactive filtering by `IDENT`.
+* Provides interactive filtering by Airspace region.
 * Uses `matplotlib`, `cartopy`, and `geopandas` for mapping.
 
 ### 6. `docker-compose.yml`
@@ -110,5 +110,3 @@ See `requirements.txt` for all Python package dependencies.
 
 * Ensure `.env` is configured with all necessary credentials.
 * Make sure Docker and Docker Compose are installed for running Redpanda.
-
-
