@@ -21,7 +21,7 @@ def load_data():
 
     # Perform static filtering (Exclude 'Outside National Airspace')
         # Doing this inside the function means we cache the CLEANED result.
-    opensky_df = opensky_df.filter(pl.col("IDENT") != "Outside National Airspace")
+    opensky_df = opensky_df.filter((pl.col("IDENT") != "Outside National Airspace") & pl.col("on_ground") == False)
     airspace_gdf = airspace_gdf[airspace_gdf["IDENT"] != "Outside National Airspace"]
     transitions_df = transitions_df.filter(
         (pl.col("IDENT_prev") != "Outside National Airspace") & 
@@ -69,7 +69,7 @@ opensky_df_in_region = opensky_df.filter(
 
 # Get most recent time and filter to last 30 minutes
 most_recent_time = opensky_df_in_region.select(pl.col("time_position").max()).item()
-cutoff_time = most_recent_time - 1800  # 30 minutes prior
+cutoff_time = most_recent_time - 300  # 5 minutes prior
 
 # Filter planes to last 30 minutes
 recent_planes = opensky_df_in_region.filter(
@@ -149,7 +149,7 @@ with col2:
     st.dataframe(exits_df, use_container_width=True, height=200, hide_index=True)
 
 # Bottom row: Full-width map
-st.subheader("Most Recent Aircraft Locations (Last 30 Minutes)")
+st.subheader("Most Recent Aircraft Locations (Last 5 Minutes)")
 
 # Display legend above the plot
 col_legend = st.columns([0.2, 0.6, 0.2])
@@ -216,7 +216,7 @@ for idx, row in airspaces_to_plot.iterrows():
     )
 
 # Plot plane locations colored by transition status with directional arrows
-arrow_length = 0.175 # Length of arrow in degrees
+arrow_length = 0.1 # Length of arrow in degrees
 
 # Loop through planes and plot
 for _, plane in recent_planes_pd.iterrows():
@@ -224,13 +224,18 @@ for _, plane in recent_planes_pd.iterrows():
     color = plane['color']
     true_track = plane['true_track']
     
-    # Plot the point
+    # Plot the point (lower alpha for Neither planes)
+    if color == "#CCCCCC":
+        alpha = 0.25
+    else:
+        alpha = 1.0
+
     ax.scatter(
         lon,
         lat,
         color=color,
-        s=50,
-        alpha=1,
+        s=25,
+        alpha=alpha,
         transform=ccrs.PlateCarree(),
         edgecolors='#FFFFFF',
         linewidth=0.5,
@@ -248,11 +253,11 @@ for _, plane in recent_planes_pd.iterrows():
         
         ax.arrow(
             lon, lat, dx, dy,
-            head_width=0.25,
-            head_length=0.14,
+            head_width=0.125,
+            head_length=0.1,
             fc=color,
             ec=color,
-            alpha=0.8,
+            alpha=alpha,
             transform=ccrs.PlateCarree(),
             zorder=6,
             linewidth=1
