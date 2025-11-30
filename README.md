@@ -17,7 +17,7 @@ python consumer.py
 ```
 
 ----------------------------------------------------------------------------
-**DATA MUST EXIST IN `AIRSPACE` TABLE IN DUCKDB TO RUN SCRIPTS 3-5**
+###**DATA MUST EXIST IN `AIRSPACE` TABLE IN DUCKDB TO RUN SCRIPTS 3-5**
 
 ### 3.
 ```sh
@@ -144,4 +144,5 @@ See `requirements.txt` for all Python package dependencies.
 
 * Ensure `.env` is configured with all necessary credentials.
 * Make sure Docker and Docker Compose are installed for running Redpanda.
+
 
